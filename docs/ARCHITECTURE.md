@@ -2,107 +2,234 @@
 
 ## Overview
 
-tikter is a multi-tenant SOC & IT Service Management platform built with a React frontend, Express/Node.js backend, and PostgreSQL database.
+tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Management SaaS platform. It is designed to be rented out by Service Providers (IT Managed Services, Software Houses, Infrastructure Ops, Security Teams) to their end-clients.
+
+## 3-Tier Multi-Tenant Model
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TIER 1: PLATFORM OWNER                       │
+│                                                                 │
+│  Super Admin (mssp_admin)                                       │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ • Tenant account CRUD                                    │    │
+│  │ • Subscription plan management (Basic/Pro/Enterprise)    │    │
+│  │ • Dynamic quota limits (users, depts, tickets, email)   │    │
+│  │ • Cross-tenant analytics dashboard                       │    │
+│  │ • User password/2FA reset, force logout                  │    │
+│  │ • Tenant status management (active/suspended/inactive)   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  System Admin tenant: mssp-internal                             │
+│  Default admin: zjrwan6@gmail.com                               │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+┌─────────▼─────────┐ ┌───▼───────────┐ ┌──▼──────────────┐
+│  TIER 2: TENANT A  │ │ TIER 2: B    │ │ TIER 2: C       │
+│  (Service Provider)│ │ (Provider)   │ │ (Provider)      │
+│                    │ │              │ │                  │
+│ Tenant Manager     │ │              │ │                  │
+│ (soc_manager)      │ │              │ │                  │
+│ ┌────────────────┐ │ │              │ │                  │
+│ │ Departments:   │ │ │              │ │                  │
+│ │ • Support      │ │ │              │ │                  │
+│ │ • Network      │ │ │              │ │                  │
+│ │ • Hardware     │ │ │              │ │                  │
+│ │                │ │ │              │ │                  │
+│ │ Employees:     │ │ │              │ │                  │
+│ │ • Dept Mgrs    │ │ │              │ │                  │
+│ │ • Analysts     │ │ │              │ │                  │
+│ └────────────────┘ │ │              │ │                  │
+│                    │ │              │ │                  │
+│ Client Module:     │ │              │ │                  │
+│ ┌────────────────┐ │ │              │ │                  │
+│ │ Client Admin   │ │ │              │ │                  │
+│ │ Client Users   │ │ │              │ │                  │
+│ └────────────────┘ │ │              │ │                  │
+└─────────┬──────────┘ └───┬───────────┘ └──┬──────────────┘
+          │                │                │
+┌─────────▼─────────┐ ┌───▼───────────┐ ┌──▼──────────────┐
+│  TIER 3: CLIENTS   │ │ TIER 3:       │ │ TIER 3:         │
+│  (End-Users)       │ │ CLIENTS       │ │ CLIENTS         │
+│                    │ │               │ │                 │
+│ • Submit tickets   │ │               │ │                 │
+│ • Track SLAs       │ │               │ │                 │
+│ • View reports     │ │               │ │                 │
+│ • Reply to support │ │               │ │                 │
+└────────────────────┘ └───────────────┘ └─────────────────┘
+```
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 18, Tailwind CSS, Socket.io-client |
-| Backend | Node.js, Express.js, PostgreSQL 16 |
-| Authentication | JWT (HttpOnly cookies + Bearer header) |
-| Real-time | Socket.io (WebSocket) |
-| PWA | Web Push Notifications (VAPID) |
-| Deployment | PM2 (cluster), Nginx, Docker |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Frontend | React 18, React Router 7, TailwindCSS | SPA with glassmorphism UI |
+| Backend | Node.js, Express.js | REST API + WebSocket server |
+| Database | PostgreSQL 16 | Primary datastore with RLS |
+| Auth | JWT + bcrypt + TOTP | HttpOnly cookies, 2FA |
+| Real-time | Socket.io | WebSocket communication |
+| PWA | Web Push (VAPID), Service Worker | Background notifications |
+| Email | Microsoft Graph API + Gmail API | Dual OAuth email providers |
+| Export | PDFKit, csv-writer | Report generation |
+| Deployment | Docker, Nginx, GitHub Actions | Containerized CI/CD |
 
 ## System Architecture
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   React     │────▶│   Nginx     │────▶│  Express    │
-│   Frontend  │     │   (Proxy)   │     │  Backend    │
-│   :3000     │     │   :80/443   │     │  :4000      │
-└─────────────┘     └─────────────┘     └─────────────┘
-                                               │
-                                               ▼
-                                        ┌─────────────┐
-                                        │  PostgreSQL  │
-                                        │  Database    │
-                                        │  :5432       │
-                                        └─────────────┘
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Browser   │────▶│  Nginx:443   │────▶│ Backend:5000 │
+│             │     │  (HTTPS)     │     │  (Node.js)   │
+└─────────────┘     │              │     └──────┬───────┘
+                    │  / → static  │            │
+                    │  /api → proxy│     ┌──────▼───────┐
+                    │  /ws → proxy │     │ PostgreSQL   │
+                    └──────────────┘     │    :5432     │
+                                         └──────────────┘
 ```
 
 ## Data Flow
 
 ### Authentication Flow
-1. User submits credentials to `POST /api/auth/login`
-2. Backend validates credentials via bcrypt
+```
+1. User submits email + password
+         │
+2. Backend validates via bcrypt compare
+         │
 3. Backend generates access token (15min) + refresh token (7 days)
-4. Tokens stored as HttpOnly cookies (`access_token`, `refresh_token`)
-5. User data returned in response body, stored in localStorage
-6. Frontend AuthContext sets `user` state
-7. ProtectedRoute renders dashboard
-
-### Session Validation Flow
-1. On page load, AuthContext reads user from localStorage
-2. AuthContext immediately sets `user` state (prevents flash redirect)
-3. Background call to `GET /api/auth/me` validates session
-4. If valid → user state updated with fresh data
-5. If invalid → localStorage cleared, user set to null
+   Tokens stored as HttpOnly cookies (access_token, refresh_token)
+         │
+4. User data returned in response body, stored in localStorage
+         │
+5. Frontend AuthContext sets user state
+         │
+6. Background call to GET /api/auth/me validates session
+```
 
 ### API Request Flow
-1. Frontend `api.js` sends request with `credentials: 'include'`
+```
+1. Frontend api.js sends request with credentials: 'include'
 2. Browser automatically attaches HttpOnly cookies
-3. Backend `authenticate` middleware extracts token from cookies
+3. Backend authenticate middleware extracts token from cookies
 4. JWT verified, user loaded from database
-5. Route handler executes with `req.user` populated
+5. Tenant context set via SET app.current_tenant
+6. PostgreSQL RLS automatically filters rows
+7. Route handler executes with req.user populated
+```
+
+### Tenant Isolation Flow
+```
+┌─────────────────────────────────────────────────┐
+│                 REQUEST INCOMING                 │
+└──────────────────────┬──────────────────────────┘
+                       │
+              ┌────────▼────────┐
+              │  JWT Middleware  │
+              │  Extract user    │
+              │  Set tenant_id   │
+              └────────┬────────┘
+                       │
+              ┌────────▼────────┐
+              │  PostgreSQL RLS  │
+              │  SET app.current_tenant = '<uuid>'
+              │  SET app.current_user_id = '<uuid>'
+              │  SET app.current_role = '<role>'
+              └────────┬────────┘
+                       │
+              ┌────────▼────────┐
+              │  Query Execution │
+              │  RLS policies    │
+              │  filter rows by  │
+              │  tenant_id       │
+              └─────────────────┘
+```
 
 ## Security Layers
 
-### CORS
-- Strict origin validation with regex patterns
-- Allows `localhost:*` for development
-- Allows configured `CLIENT_URL` for production
-- `credentials: true` for cookie-based auth
+### Database-Level (PostgreSQL RLS)
+```sql
+-- Every tenant-scoped table has RLS policies
+CREATE POLICY ticket_isolation ON tickets
+    FOR ALL
+    USING (
+        tenant_id = current_setting('app.current_tenant')::UUID
+        OR current_setting('app.current_role') = 'mssp_admin'
+    );
+```
 
-### Rate Limiting
-- Global rate limiter on all `/api/` routes
-- Per-route limiters for auth endpoints
-- Brute-force protection on login (15-minute lockout)
+### Application-Level
+- Every API query scoped by `tenant_id` via middleware
+- `req.user.tenantId` injected from JWT token
+- Service layer enforces role-based permissions
+- Internal notes (`visibility: internal`) never sent to client endpoints
 
-### Password Security
-- Bcrypt hashing with 12 salt rounds
-- Password complexity requirements (min 8 chars, uppercase, lowercase, number, special char)
-- Forced password change on first login
+### Network-Level
+- Strict CORS with origin allowlist (no dev bypass)
+- Dynamic CORS for LAN access (private IP ranges only)
+- Helmet.js security headers (13 headers including CSP, HSTS)
+- Permissions-Policy header (camera, microphone, geolocation disabled)
+- Rate limiting on all API endpoints
 
-### Input Sanitization
-- XSS protection via input sanitization middleware
-- SQL injection prevention via parameterized queries
-- Helmet security headers
+### Encryption
+- AES-256-GCM for OAuth email credentials (`OAUTH_ENCRYPTION_KEY`)
+- AES-256-CBC for general encryption (`ENCRYPTION_KEY`)
+- VAPID key encryption for Web Push
+- Bcrypt (12 rounds) for password hashing
 
-## Multi-Tenancy
+## Role-Based Access Control
 
-### Tenant Isolation
-- All tables include `tenant_id` foreign key
-- Database-level row security via `SET app.current_tenant`
-- API middleware enforces tenant context
+| Role | Scope | Default Redirect |
+|------|-------|-----------------|
+| `mssp_admin` | Platform-wide | `/admin` |
+| `soc_manager` (no dept) | Own tenant | `/manager` |
+| `soc_manager` (with dept) | Assigned departments | `/department/manager` |
+| `soc_analyst` | Assigned department | `/department/employee` |
+| `client_admin` | Own organization | `/client` |
+| `client_employee` | Own organization | `/client` |
 
-### Role-Based Access Control
-- Roles: `mssp_admin`, `soc_manager`, `soc_analyst`, `client_admin`, `client_employee`
-- Department-based access for managers and analysts
-- Client module visibility controlled by `enable_clients` flag
+### Permission Matrix
+
+| Feature | Super Admin | Tenant Mgr | Dept Mgr | Employee | Client Admin | Client |
+|---------|:-----------:|:----------:|:--------:|:--------:|:------------:|:------:|
+| Tenant Management | Yes | - | - | - | - | - |
+| Department Management | Yes | Yes | Own depts | - | - | - |
+| Employee Management | Yes | Yes | Own depts | - | Own org | - |
+| Create Tickets | Yes | Yes | Yes | Yes | Yes | Yes |
+| View All Tickets | All tenants | Own tenant | Own depts | Assigned | Own org | Own only |
+| Assign Tickets | Yes | Yes | Own depts | - | Own org | - |
+| Internal Notes | Yes | Yes | Yes | Yes | - | - |
+| Change Severity | Yes | Yes | Yes | - | - | - |
+| Reports | All | Tenant/Dept | Dept | Own stats | Org stats | Own only |
+| Client Module | Yes | If enabled | - | - | Yes | Yes |
 
 ## Real-Time Features
 
 ### Socket.io Events
-- `user-online` / `user-offline` — Online status tracking
-- `ticket-updated` — Ticket state changes
-- `notification` — Push notifications
+| Event | Direction | Description |
+|-------|-----------|-------------|
+| `notification` | Server → Client | New notification received |
+| `ticket:created` | Server → Client | New ticket created |
+| `ticket:updated` | Server → Client | Ticket status/severity changed |
+| `ticket:message` | Server → Client | New message on subscribed ticket |
+| `user-online` / `user-offline` | Bidirectional | Online status tracking |
 
 ### Web Push Notifications
 - VAPID keys auto-generated on first run
-- Push subscriptions stored in database
-- Notification preferences per user
+- Push subscriptions stored per user per device
+- Notification preferences per user (6 types)
+- Service Worker handles push reception + notification display
+- Click notification → navigate to relevant ticket
+
+## Dynamic OAuth Key Loading
+
+OAuth credentials for email providers are loaded from `D:\credentials.json` via `oauthCredentialsService.js`:
+
+```javascript
+// Path configured via GOOGLE_CREDENTIALS_PATH env var
+// Fallback: D:\credentials.json
+const credentials = oauthCredentialsService.getCredentials();
+```
 
 ## File Structure
 
@@ -110,28 +237,90 @@ tikter is a multi-tenant SOC & IT Service Management platform built with a React
 tikter/
 ├── backend/
 │   ├── src/
-│   │   ├── config/         # DB, JWT, SMTP config
-│   │   ├── controllers/    # Route handlers
-│   │   ├── middleware/      # Auth, CORS, rate limiting
-│   │   ├── models/         # Database schemas
-│   │   ├── routes/         # API routes
-│   │   ├── services/       # Business logic
-│   │   ├── utils/          # Helpers, seed scripts
-│   │   └── server.js       # Express app entry
+│   │   ├── config/           # DB, JWT, SMTP, OAuth config
+│   │   ├── controllers/      # Route handlers
+│   │   │   ├── authController.js          # Login, register, password reset
+│   │   │   ├── ticketController.js        # Ticket CRUD + messaging
+│   │   │   ├── departmentController.js    # Department management
+│   │   │   ├── adminTenantController.js   # Super admin tenant ops
+│   │   │   ├── tenantController.js        # Tenant CRUD
+│   │   │   ├── mfaController.js           # 2FA setup/verify
+│   │   │   ├── reportController.js        # PDF/CSV export
+│   │   │   ├── emailConfigController.js   # Email provider CRUD
+│   │   │   ├── invitationController.js    # Email invitations
+│   │   │   └── pushSubscriptionController.js # Push subscriptions
+│   │   ├── middleware/        # Auth, CORS, rate limiting, tenant guard
+│   │   ├── routes/           # API route definitions
+│   │   ├── services/         # Business logic
+│   │   │   ├── emailService.js            # SMTP fallback
+│   │   │   ├── microsoftGraphService.js   # Microsoft OAuth + Graph API
+│   │   │   ├── googleOAuthService.js      # Google OAuth + Gmail API
+│   │   │   ├── providerEmailService.js    # Unified provider sender
+│   │   │   ├── pushNotificationService.js # VAPID + Web Push
+│   │   │   ├── notificationService.js     # Dual-layer engine
+│   │   │   └── reportService.js           # PDF/CSV generation
+│   │   ├── utils/            # Helpers, seed scripts
+│   │   └── server.js         # Express + Socket.io entry
+│   ├── Dockerfile
 │   └── package.json
 ├── frontend/
-│   ├── public/             # Static assets
+│   ├── public/               # Static assets, PWA manifest, service worker
 │   ├── src/
-│   │   ├── components/     # UI components
-│   │   ├── contexts/       # Auth, Language, Theme
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── pages/          # View components
-│   │   ├── services/       # API client, socket
-│   │   └── utils/          # Translations, helpers
+│   │   ├── components/       # Shared layout components
+│   │   ├── contexts/         # Auth, Language, Theme providers
+│   │   ├── pages/            # Route-level page components
+│   │   ├── services/         # API client, socket, push notifications
+│   │   └── utils/            # Translations, helpers
+│   ├── Dockerfile
 │   └── package.json
-├── database/               # SQL migrations
-├── documents/              # Technical documentation
-├── deploy/                 # Deployment scripts
-├── nginx/                  # Nginx configurations
-└── docker-compose.yml      # Docker stack
+├── database/                 # SQL migrations (001-024)
+├── documents/                # Technical documentation
+├── docker-compose.yml        # Container orchestration
+├── .github/workflows/        # GitHub Actions CI/CD
+└── nginx.conf                # Nginx reverse proxy config
 ```
+
+## Database Schema
+
+### Core Tables
+
+| Table | Purpose |
+|-------|---------|
+| `tenants` | Organizations (providers + clients), with plan quotas + `enable_clients` |
+| `users` | All users across all tenants |
+| `departments` | Tenant-scoped departments with `allow_client_communication` |
+| `tickets` | Incidents with severity, status, and type lifecycle |
+| `ticket_messages` | Messages with `visibility` flag (internal vs external) |
+| `ticket_assignments` | Cross-department approval workflow tracking |
+| `ticket_severity_history` | Audit trail for severity changes |
+| `audit_logs` | Every action tracked with user, IP, old/new values |
+| `notifications` | In-app notifications |
+| `vapid_keys` | Encrypted VAPID key storage |
+| `push_subscriptions` | Per-user per-device push endpoints |
+| `notification_preferences` | Per-user notification type toggles |
+| `notification_log` | Delivery audit trail |
+| `tenant_email_configs` | Per-tenant encrypted OAuth credentials |
+| `invitations` | Pending user invitations with hashed tokens |
+
+### Ticket Types
+
+| Type | Visibility | Description |
+|------|-----------|-------------|
+| `soc_client` | External | Client-facing ticket (requires clientTenantId) |
+| `internal_dept` | Internal | Cross-department internal ticket |
+| `it_helpdesk` | Internal | IT Helpdesk support ticket |
+
+### Ticket Lifecycle
+
+```
+Open → Pending Review → In Progress → Resolved → Closed
+                  ↘ Pending Approval (cross-department)
+```
+
+### Severity Levels
+
+| Level | SLA | Description |
+|-------|-----|-------------|
+| High | 4h | Critical incidents |
+| Medium | 24h | Standard incidents |
+| Low | 72h | Informational / non-urgent |

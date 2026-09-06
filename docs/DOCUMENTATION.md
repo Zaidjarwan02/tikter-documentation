@@ -1,4 +1,4 @@
-# MSSP SOC Ticketing & Incident Management System
+# tikter — Enterprise B2B Multi-Tenant Service Desk SaaS
 
 ## Complete Technical Documentation
 
@@ -26,7 +26,7 @@
 
 ## 1. System Overview
 
-The MSSP SOC Ticketing System is a multi-tenant incident management platform built for Managed Security Service Providers (MSSPs). It bridges internal SOC analyst communication with external client responses while maintaining strict data isolation and accountability.
+tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Management SaaS platform. It is designed to be rented out by Service Providers (IT Managed Services, Software Houses, Infrastructure Ops, Security Teams) to their end-clients, with strict data isolation and accountability.
 
 ### Key Capabilities
 
@@ -38,7 +38,7 @@ The MSSP SOC Ticketing System is a multi-tenant incident management platform bui
 - **Dual email integration** — Microsoft Outlook (Graph API) + Google Workspace (Gmail API)
 - **Email invitation workflow** — invite users by email with role/department assignment
 - **Cross-department approval workflow** — assign tickets between departments with manager approval
-- **RBAC** with 5 role types (MSSP Admin, Tenant Admin, Dept Manager, SOC Analyst, Client)
+- **RBAC** with 5 role types (System Admin, Tenant Manager, Dept Manager, Dept Employee, Client)
 - **2FA support** via TOTP (Google Authenticator / Authy)
 - **Audit logging** on every significant action
 - **SLA tracking** with breach monitoring
@@ -49,10 +49,12 @@ The MSSP SOC Ticketing System is a multi-tenant incident management platform bui
 
 | Persona | Primary Use |
 |---------|-------------|
-| MSSP Admin | Cross-tenant oversight, user management, system configuration |
-| SOC Manager | Dashboard analytics, ticket assignment, report generation |
-| SOC Analyst | Ticket triage, incident response, internal collaboration |
-| Client User | View own tickets, reply to SOC, quick actions |
+| System Admin | Cross-tenant oversight, tenant management, system configuration |
+| Tenant Manager | Dashboard analytics, department management, employee oversight |
+| Dept Manager | Department tickets, team management, cross-dept approval |
+| Dept Employee | Ticket handling, internal notes, client communication |
+| Client Admin | User management, ticket creation, report export |
+| Client Employee | Ticket creation, ticket tracking |
 
 ---
 
@@ -65,7 +67,7 @@ The MSSP SOC Ticketing System is a multi-tenant incident management platform bui
 │   • View tickets, reply, quick actions                           │
 │   • Dashboard with org-specific metrics                          │
 │   • Export reports (PDF/CSV)                                     │
-│   • All SOC responses appear as "SOC Team"                       │
+│   • All provider responses appear as "Support Team"              │
 └───────────────────────────┬──────────────────────────────────────┘
                             │ HTTP / WebSocket
                    ┌────────▼────────┐

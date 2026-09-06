@@ -6,7 +6,7 @@
 
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
-| `PORT` | `4000` | No | Backend server port |
+| `PORT` | `5000` | No | Backend server port |
 | `NODE_ENV` | `development` | No | Environment mode (`development` / `production`) |
 
 ### Database (PostgreSQL)
@@ -47,7 +47,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 | `SMTP_PORT` | `587` | No | SMTP server port |
 | `SMTP_USER` | — | Yes | SMTP username/email |
 | `SMTP_PASS` | — | Yes | SMTP password/app password |
-| `SOC_EMAIL` | `soc@company.com` | No | Sender email address |
+| `SOC_EMAIL` | Falls back to `SMTP_USER` then `support@company.com` | No | Sender email address |
 
 ### CORS & Frontend URL
 
