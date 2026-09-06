@@ -89,11 +89,7 @@ npm run dev
 cd frontend && npm install && npm start
 ```
 
-### Default Admin
-- Email: `zjrwan6@gmail.com`
-- Password: Set via `SEED_ADMIN_PASSWORD` env var
 
----
 
 ## License
 
