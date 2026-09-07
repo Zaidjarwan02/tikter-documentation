@@ -31,7 +31,7 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
 ### Key Capabilities
 
 - **Multi-tenant architecture** with PostgreSQL Row-Level Security (RLS)
-- **Dual-portal design**: SOC internal dashboard + Client self-service portal
+- **Dual-portal design**: Provider internal dashboard + Client self-service portal
 - **Communication bridge** with visibility controls (internal notes vs. external replies)
 - **Dual-layer notifications** — Socket.io (0ms) + Web Push (background/closed) via VAPID
 - **PWA desktop installation** — standalone display, offline caching, native OS notifications
@@ -90,11 +90,11 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
           │          └─────────────┘
           │
 ┌─────────▼─────────────────────────────────────────────────────────┐
-│                     SOC INTERNAL                                  │
-│   Full analyst identity on every action                           │
+│                  PROVIDER OPERATIONAL CORE                        │
+│   Full agent identity on every action                            │
 │   Internal notes for pre-reply discussion                         │
 │   Severity management with audit trail                            │
-│   SLA tracking & analyst KPI dashboards                           │
+│   SLA tracking & agent KPI dashboards                             │
 │   Cross-tenant admin visibility                                   │
 │   Cross-department approval workflow                              │
 └───────────────────────────────────────────────────────────────────┘
@@ -357,7 +357,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
-SOC_EMAIL=soc@yourcompany.com
+SOC_EMAIL=support@yourcompany.com
 
 # Frontend URL (for CORS)
 FRONTEND_URL=http://localhost:3000
@@ -428,13 +428,13 @@ tenants ─────┬──────────────────
 | full_name | VARCHAR(255) | Display name |
 | role | VARCHAR(50) | RBAC role |
 | department_id | UUID | FK to departments (nullable) |
-| analyst_level | VARCHAR(10) | L1, L2, or L3 (SOC analysts only) |
+| analyst_level | VARCHAR(10) | L1, L2, or L3 (department agents) |
 | is_active | BOOLEAN | Account enabled/disabled |
 | is_2fa_enabled | BOOLEAN | 2FA status |
 | require_2fa_setup | BOOLEAN | Force 2FA setup on login |
 | last_login | TIMESTAMPTZ | Last authentication time |
 
-**Roles:** `mssp_admin`, `soc_manager`, `soc_analyst`, `client_admin`, `client_employee`
+**Roles:** `super_admin`, `tenant_admin`, `department_agent`, `client_admin`, `client_user`
 
 #### `tickets` - Security Incidents
 
@@ -448,12 +448,12 @@ tenants ─────┬──────────────────
 | severity | ENUM | `high`, `medium`, `low` |
 | status | ENUM | `open`, `pending_soc`, `in_progress`, `pending_approval`, `resolved`, `closed` |
 | type | VARCHAR(20) | `soc_client`, `internal_dept`, `it_helpdesk` |
-| source | VARCHAR(50) | `soc` or `client` (who created it) |
-| assigned_analyst_id | UUID | FK to users (assigned analyst) |
+| source | VARCHAR(50) | `provider` or `client` (who created it) |
+| assigned_analyst_id | UUID | FK to users (assigned agent) |
 | department_id | UUID | FK to departments (routing) |
 | created_by | UUID | FK to users (creator) |
 | sla_breach_at | TIMESTAMPTZ | Calculated SLA deadline |
-| first_response_at | TIMESTAMPTZ | Time of first SOC response |
+| first_response_at | TIMESTAMPTZ | Time of first agent response |
 | resolved_at | TIMESTAMPTZ | Resolution timestamp |
 
 #### `ticket_messages` - Communication Thread
@@ -465,7 +465,7 @@ tenants ─────┬──────────────────
 | tenant_id | UUID | FK to tenants |
 | author_id | UUID | FK to users |
 | content | TEXT | Message body |
-| visibility | VARCHAR(20) | `internal` (SOC-only) or `external` (client-visible) |
+| visibility | VARCHAR(20) | `internal` (staff-only) or `external` (client-visible) |
 | is_escalation | BOOLEAN | Escalation flag |
 
 **Critical Design:** Messages with `visibility: internal` are **never** returned to client-facing API endpoints.
@@ -688,7 +688,7 @@ Applied in order:
 
 ### Role-Based Access Control (RBAC)
 
-| Resource | mssp_admin | soc_manager | soc_analyst | client_user |
+| Resource | super_admin | tenant_admin | department_agent | client_user |
 |----------|:----------:|:-----------:|:-----------:|:-----------:|
 | All tenants data | ✅ | ❌ | ❌ | ❌ |
 | User management | ✅ | ❌ | ❌ | ❌ |
@@ -717,7 +717,7 @@ CREATE POLICY ticket_isolation ON tickets
     FOR ALL
     USING (
         tenant_id = current_setting('app.current_tenant')::UUID
-        OR current_setting('app.current_role') = 'mssp_admin'
+        OR current_setting('app.current_role') = 'super_admin'
     );
 ```
 
@@ -726,10 +726,10 @@ CREATE POLICY ticket_isolation ON tickets
   ```sql
   SET app.current_tenant = 'tenant-uuid';
   SET app.current_user_id = 'user-uuid';
-  SET app.current_role = 'soc_analyst';
+  SET app.current_role = 'department_agent';
   ```
 - PostgreSQL automatically filters rows based on RLS policies
-- MSSP Admin bypasses tenant filtering for cross-tenant access
+- Super Admin bypasses tenant filtering for cross-tenant access
 
 #### 2. Application-Level
 
@@ -741,7 +741,7 @@ CREATE POLICY ticket_isolation ON tickets
 
 - Client users can only see their own organization's data
 - Navigation and features are conditionally rendered based on role
-- Client portal shows "SOC Team" instead of individual analyst names
+- Client portal shows "Support Team" instead of individual agent names
 
 ### Security Measures
 
@@ -813,7 +813,7 @@ Authorization: Bearer <jwt_token>
     "id": "uuid",
     "email": "user@example.com",
     "fullName": "System Administrator",
-    "role": "mssp_admin",
+    "role": "super_admin",
     "tenantId": "uuid"
   }
 }
@@ -836,7 +836,7 @@ Authorization: Bearer <jwt_token>
 | POST | `/api/tickets/:id/messages` | Add message to ticket | All |
 | PATCH | `/api/tickets/:id/status` | Update ticket status | Admin/Manager |
 | PATCH | `/api/tickets/:id/severity` | Update severity (with audit) | Admin/Manager |
-| PATCH | `/api/tickets/:id/assign` | Assign analyst | Admin/Manager |
+| PATCH | `/api/tickets/:id/assign` | Assign agent | Admin/Manager |
 | GET | `/api/tickets/dashboard/stats` | Dashboard statistics | All |
 
 #### GET `/api/tickets`
@@ -886,8 +886,8 @@ Authorization: Bearer <jwt_token>
 ```
 
 **Visibility Rules:**
-- `external` — Visible to both SOC and client (client sees "SOC Team")
-- `internal` — SOC-only private notes (never sent to client endpoints)
+- `external` — Visible to both provider and client (client sees "Support Team")
+- `internal` — Staff-only private notes (never sent to client endpoints)
 
 ### User Management Endpoints
 
@@ -962,7 +962,7 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint | Description | Roles |
 |--------|----------|-------------|-------|
-| GET | `/api/manager/settings` | Get tenant settings (enable_clients) | Manager/Analyst |
+| GET | `/api/manager/settings` | Get tenant settings (enable_clients) | Manager/Agent |
 
 ---
 
@@ -990,13 +990,13 @@ The app uses React Context for global state:
 
 | Path | Component | Access |
 |------|-----------|--------|
-| `/admin` | AdminDashboard | MSSP Admin |
-| `/admin/tenants` | AdminTenants | MSSP Admin |
-| `/admin/tenants/:tenantId/manage` | AdminTenantManage | MSSP Admin |
-| `/admin/users` | UserManagement | MSSP Admin |
-| `/admin/support` | AdminSupport | MSSP Admin |
-| `/admin/analytics` | AdminAnalytics | MSSP Admin |
-| `/admin/notifications` | NotificationSettings | MSSP Admin |
+| `/admin` | AdminDashboard | Super Admin |
+| `/admin/tenants` | AdminTenants | Super Admin |
+| `/admin/tenants/:tenantId/manage` | AdminTenantManage | Super Admin |
+| `/admin/users` | UserManagement | Super Admin |
+| `/admin/support` | AdminSupport | Super Admin |
+| `/admin/analytics` | AdminAnalytics | Super Admin |
+| `/admin/notifications` | NotificationSettings | Super Admin |
 
 #### Tenant Admin Routes
 
@@ -1006,15 +1006,15 @@ The app uses React Context for global state:
 | `/manager/employees` | ManagerEmployees | Tenant Admin |
 | `/manager/clients` | ManagerClients | Tenant Admin (enable_clients) |
 | `/manager/departments` | ManagerDepartments | Tenant Admin |
-| `/manager/tickets` | TicketList | Tenant Admin / Analyst |
-| `/manager/tickets/new` | CreateTicket | Tenant Admin / Analyst |
-| `/manager/tickets/:id` | TicketDetail | Tenant Admin / Analyst |
-| `/manager/settings` | Settings | Tenant Admin / Analyst |
-| `/manager/settings/2fa` | TwoFactorSetup | Tenant Admin / Analyst |
+| `/manager/tickets` | TicketList | Tenant Admin / Agent |
+| `/manager/tickets/new` | CreateTicket | Tenant Admin / Agent |
+| `/manager/tickets/:id` | TicketDetail | Tenant Admin / Agent |
+| `/manager/settings` | Settings | Tenant Admin / Agent |
+| `/manager/settings/2fa` | TwoFactorSetup | Tenant Admin / Agent |
 | `/manager/settings/email` | ManagerEmailConfig | Tenant Admin |
 | `/manager/invitations` | ManagerInvitations | Tenant Admin |
 | `/manager/report-issue` | ReportIssue | Tenant Admin |
-| `/manager/notifications` | NotificationSettings | Tenant Admin / Analyst |
+| `/manager/notifications` | NotificationSettings | Tenant Admin / Agent |
 
 #### Department Manager Routes
 
@@ -1031,11 +1031,11 @@ The app uses React Context for global state:
 
 | Path | Component | Access |
 |------|-----------|--------|
-| `/department/employee` | TicketList | SOC Analyst |
-| `/department/employee/my-tickets` | EmployeeMyTickets | SOC Analyst |
-| `/department/employee/tickets/:id` | TicketDetail | SOC Analyst |
-| `/department/employee/notifications` | NotificationSettings | SOC Analyst |
-| `/department/employee/settings` | Settings | SOC Analyst |
+| `/department/employee` | TicketList | Department Agent |
+| `/department/employee/my-tickets` | EmployeeMyTickets | Department Agent |
+| `/department/employee/tickets/:id` | TicketDetail | Department Agent |
+| `/department/employee/notifications` | NotificationSettings | Department Agent |
+| `/department/employee/settings` | Settings | Department Agent |
 
 #### Client Routes
 
@@ -1219,7 +1219,7 @@ Different tones for different notification types to help users distinguish urgen
                     ▼                                              │
     ┌────────┐   ┌────────────┐   ┌────────────┐   ┌──────────┐  │
     │  OPEN  │──▶│ PENDING    │──▶│ IN         │──▶│ RESOLVED │──┤
-    │        │   │ SOC        │   │ PROGRESS   │   │          │  │
+    │        │   │ Support    │   │ PROGRESS   │   │          │  │
     └────────┘   └────────────┘   └────────────┘   └──────────┘  │
          │                                                       │
          │              ┌──────────┐                             │
@@ -1232,7 +1232,7 @@ Different tones for different notification types to help users distinguish urgen
 | Status | Description | SLA Clock |
 |--------|-------------|-----------|
 | `open` | New ticket, awaiting triage | Running |
-| `pending_soc` | Acknowledged, SOC reviewing | Running |
+| `pending_approval` | Pending manager approval | Paused |
 | `in_progress` | Actively being worked | Running |
 | `resolved` | Issue fixed, pending client confirmation | Stopped |
 | `closed` | Confirmed closed | Stopped |
@@ -1255,7 +1255,7 @@ sla_breach_at = created_at + sla_duration(severity)
 
 Every severity change is recorded with:
 - Previous and new severity levels
-- Who made the change (analyst ID)
+- Who made the change (agent ID)
 - Reason/justification
 - Timestamp
 
@@ -1263,19 +1263,19 @@ Every severity change is recorded with:
 
 ## 13. User Roles & Permissions
 
-### MSSP Admin (`mssp_admin`)
+### Super Admin (`super_admin`)
 
 **Full system access across all tenants:**
 
 - View all tickets across all client organizations
 - Create, edit, delete users
-- Assign roles and analyst levels
+- Assign roles and agent levels
 - Manage 2FA policies
 - View audit logs
 - Generate reports
 - Cross-tenant dashboard analytics
 
-### SOC Manager (`soc_manager`)
+### Tenant Admin (`tenant_admin`)
 
 **Team management within own tenant:**
 
@@ -1286,7 +1286,7 @@ Every severity change is recorded with:
 - Manage ticket status
 - Access dashboard with team metrics
 
-### SOC Analyst (`soc_analyst`)
+### Department Agent (`department_agent`)
 
 **Operational ticket handling:**
 
@@ -1301,11 +1301,11 @@ Every severity change is recorded with:
 **Self-service portal for own organization:**
 
 - View own organization's tickets only
-- Reply to SOC responses
+- Reply to provider responses
 - Create new tickets
 - View client dashboard
 - Export own reports
-- All SOC responses appear as "SOC Team" (no analyst names)
+- All provider responses appear as "Support Team" (no agent names)
 
 ---
 
@@ -1362,7 +1362,7 @@ services:
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name soc.yourcompany.com;
+    server_name support.yourcompany.com;
 
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;

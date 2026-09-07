@@ -38,11 +38,11 @@ Authorization: Bearer <access_token>
 
 | Role | Scope | Description |
 |------|-------|-------------|
-| `mssp_admin` | Platform-wide | System administrator (Super Admin) |
-| `soc_manager` | Own tenant | Tenant Manager / Department Manager |
-| `soc_analyst` | Assigned department | Department Employee |
+| `super_admin` | Platform-wide | System administrator (Super Admin) |
+| `tenant_admin` | Own tenant | Tenant Manager / Department Manager |
+| `department_agent` | Assigned department | Department Employee |
 | `client_admin` | Own organization | Client Administrator |
-| `client_employee` | Own organization | Client End-User |
+| `client_user` | Own organization | Client End-User |
 
 ---
 
@@ -70,7 +70,7 @@ Authenticate user and receive session cookies.
     "tenantId": "uuid",
     "email": "user@example.com",
     "fullName": "System Administrator",
-    "role": "mssp_admin",
+    "role": "super_admin",
     "analystLevel": null,
     "mfaEnabled": false,
     "is2faEnabled": false,
@@ -128,7 +128,7 @@ Get current authenticated user profile.
     "tenantId": "uuid",
     "email": "user@example.com",
     "fullName": "System Administrator",
-    "role": "mssp_admin",
+    "role": "super_admin",
     "analystLevel": null,
     "mfaEnabled": false,
     "departmentId": null,
@@ -213,7 +213,7 @@ Change password for authenticated user.
 
 #### POST `/api/auth/register`
 
-Register a new user (requires `mssp_admin` or `soc_manager`).
+Register a new user (requires `super_admin` or `tenant_admin`).
 
 **Request:**
 ```json
@@ -221,7 +221,7 @@ Register a new user (requires `mssp_admin` or `soc_manager`).
   "email": "newuser@example.com",
   "password": "SecurePass123!",
   "fullName": "John Doe",
-  "role": "soc_analyst",
+  "role": "department_agent",
   "departmentId": "uuid"
 }
 ```
@@ -504,7 +504,7 @@ Create a user account (manager, employee, or client).
 {
   "email": "employee@example.com",
   "fullName": "Jane Smith",
-  "role": "soc_analyst",
+  "role": "department_agent",
   "departmentId": "uuid",
   "password": "SecurePass123!"
 }
@@ -647,7 +647,7 @@ Send a user invitation email.
 ```json
 {
   "email": "newuser@company.com",
-  "role": "soc_analyst",
+  "role": "department_agent",
   "departmentId": "uuid"
 }
 ```
@@ -690,7 +690,7 @@ List departments (tenant-scoped, for current user).
 
 #### GET `/api/departments/all`
 
-List all departments across tenants (`mssp_admin` only).
+List all departments across tenants (`super_admin` only).
 
 #### GET `/api/departments/:id`
 
@@ -698,15 +698,15 @@ Get a specific department by ID.
 
 #### POST `/api/departments`
 
-Create a new department (`mssp_admin`).
+Create a new department (`super_admin`).
 
 #### PATCH `/api/departments/:id`
 
-Update a department (`mssp_admin`).
+Update a department (`super_admin`).
 
 #### PATCH `/api/departments/:id/toggle`
 
-Activate/deactivate a department (`mssp_admin`).
+Activate/deactivate a department (`super_admin`).
 
 #### GET `/api/departments/:id/users`
 
@@ -718,7 +718,7 @@ List users in a specific department.
 
 #### POST `/api/department-portal/users`
 
-Department manager creates a `soc_analyst` employee (auto-injects department_id).
+Department manager creates a `department_agent` employee (auto-injects department_id).
 
 **Request:**
 ```json
@@ -870,7 +870,7 @@ Recall/unassign a ticket (emits via Socket.IO).
 
 #### DELETE `/api/tickets/:id`
 
-Soft-delete a ticket (`mssp_admin` only).
+Soft-delete a ticket (`super_admin` only).
 
 ---
 
@@ -1048,7 +1048,7 @@ Get push notification delivery log.
 
 #### GET `/api/email-quotas`
 
-Get all tenant email quotas (`mssp_admin` only).
+Get all tenant email quotas (`super_admin` only).
 
 #### GET `/api/email-quotas/:tenantId`
 
@@ -1056,7 +1056,7 @@ Get email quota for a single tenant.
 
 #### PUT `/api/email-quotas/:tenantId/limit`
 
-Update the monthly email cap for a tenant (`mssp_admin`).
+Update the monthly email cap for a tenant (`super_admin`).
 
 #### GET `/api/email-quotas/:tenantId/history`
 
@@ -1064,7 +1064,7 @@ Get paginated email send history for a tenant.
 
 #### POST `/api/email-quotas/:tenantId/reset`
 
-Manually reset the email counter mid-cycle (`mssp_admin`).
+Manually reset the email counter mid-cycle (`super_admin`).
 
 ---
 

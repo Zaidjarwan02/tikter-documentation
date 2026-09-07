@@ -3,18 +3,18 @@
 ## Role Hierarchy
 
 ```
-mssp_admin (Super Admin)
-    └── soc_manager (Tenant Admin / Department Manager)
-        └── soc_analyst (Department Employee)
-    └── client_admin (Client Administrator)
-        └── client_employee (Client User)
+super_admin (Platform Owner)
+    ├── tenant_admin (Service Provider Manager)
+    │   └── department_agent (Department Staff Member)
+    └── client_admin (End-Client Administrator)
+        └── client_user (End-Client User / Submitter)
 ```
 
 ## Role Definitions
 
-### `mssp_admin` — Super Admin
+### `super_admin` — Platform Owner
 
-Full system access across all tenants and modules.
+Full system access across all tenants and modules. Responsible for platform-wide configuration, tenant provisioning, and global oversight.
 
 | Permission | Access |
 |------------|--------|
@@ -32,17 +32,17 @@ Full system access across all tenants and modules.
 
 ---
 
-### `soc_manager` — Tenant Admin / Department Manager
+### `tenant_admin` — Service Provider Manager
 
-Manages department(s) and team members within assigned tenant.
+Manages own tenant workspace, including departments, staff members, and client organizations. Scope is limited to assigned tenant.
 
 | Permission | Access |
 |------------|--------|
 | Own Tenant Users | Create, Read, Update |
 | Own Department(s) | Full management |
-| Ticket Assignment | Assign to analysts in managed departments |
+| Ticket Assignment | Assign to agents/staff within managed departments |
 | Ticket Approval | Approve/reject cross-department assignments |
-| Reports | Department-specific |
+| Reports | Tenant- and department-specific |
 | Client Module | If `enable_clients=true` on tenant |
 
 **With `department_id`:** Redirects to `/department/manager`
@@ -50,16 +50,16 @@ Manages department(s) and team members within assigned tenant.
 
 ---
 
-### `soc_analyst` — Department Employee
+### `department_agent` — Department Staff Member
 
-Handles tickets within assigned department.
+Handles tickets within assigned department. Works tickets, communicates with clients, and tracks resolution progress.
 
 | Permission | Access |
 |------------|--------|
 | Assigned Tickets | Read, Update status, Add messages |
 | Own Profile | Read, Update |
 | Ticket Creation | Yes |
-| Ticket Assignment | No (manager only) |
+| Ticket Assignment | No (admin only) |
 | User Management | No |
 | Reports | Own statistics only |
 
@@ -67,9 +67,9 @@ Handles tickets within assigned department.
 
 ---
 
-### `client_admin` — Client Administrator
+### `client_admin` — End-Client Administrator
 
-Manages client organization users and tickets.
+Manages client organization users and tickets. Operates within own organization scope.
 
 | Permission | Access |
 |------------|--------|
@@ -82,9 +82,9 @@ Manages client organization users and tickets.
 
 ---
 
-### `client_employee` — Client User
+### `client_user` — End-Client User / Submitter
 
-Basic ticket submission and tracking.
+Basic ticket submission and tracking. Submits requests and monitors their progress.
 
 | Permission | Access |
 |------------|--------|
@@ -98,8 +98,8 @@ Basic ticket submission and tracking.
 
 ## Permission Matrix
 
-| Feature | mssp_admin | soc_manager | soc_analyst | client_admin | client_employee |
-|---------|------------|-------------|-------------|--------------|-----------------|
+| Feature | super_admin | tenant_admin | department_agent | client_admin | client_user |
+|---------|-------------|--------------|------------------|--------------|-------------|
 | **Dashboard** | System-wide | Tenant/Dept | Dept only | Org only | Own only |
 | **Create Ticket** | Yes | Yes | Yes | Yes | Yes |
 | **View All Tickets** | All tenants | Own tenant | Own dept | Own org | Own only |
@@ -122,7 +122,7 @@ Basic ticket submission and tracking.
 
 ### Multi-Department Managers
 
-Managers can be assigned to multiple departments via the `user_departments` junction table.
+Tenant admins can be assigned to multiple departments via the `user_departments` junction table.
 
 **Database schema:**
 ```sql
@@ -138,7 +138,7 @@ CREATE TABLE user_departments (
 **Access check function:**
 ```javascript
 function hasDeptAccess(user, deptId) {
-    if (user.role === 'mssp_admin') return true;
+    if (user.role === 'super_admin') return true;
     if (!user.managed_department_ids) return false;
     return user.managed_department_ids.includes(deptId);
 }
@@ -159,7 +159,7 @@ function hasDeptAccess(user, deptId) {
 
 ## Invitation Workflow
 
-1. Manager/Admin creates invitation via `POST /api/invitations`
+1. Admin/Manager creates invitation via `POST /api/invitations`
 2. Email sent to invitee with unique token
 3. Invitee clicks link to `/auth/accept-invite`
 4. Account created with assigned role and department(s)

@@ -2,7 +2,7 @@
 
 ## Overview
 
-tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Management SaaS platform. It is designed to be rented out by Service Providers (IT Managed Services, Software Houses, Infrastructure Ops, Security Teams) to their end-clients.
+tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Management SaaS platform. It is designed to be rented out by Service Providers (IT Managed Services, Software Houses, Infrastructure Ops, Support Teams) to their end-clients.
 
 ## 3-Tier Multi-Tenant Model
 
@@ -10,7 +10,7 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
 ┌─────────────────────────────────────────────────────────────────┐
 │                    TIER 1: PLATFORM OWNER                       │
 │                                                                 │
-│  Super Admin (mssp_admin)                                       │
+│  Super Admin (super_admin)                                      │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ • Tenant account CRUD                                    │    │
 │  │ • Subscription plan management (Basic/Pro/Enterprise)    │    │
@@ -20,7 +20,7 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
 │  │ • Tenant status management (active/suspended/inactive)   │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                 │
-│  System Admin tenant: mssp-internal                             │
+│  System Admin tenant: platform-admin                            │
 │  Default admin: zjrwan6@gmail.com                               │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
@@ -30,17 +30,17 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
 │  TIER 2: TENANT A  │ │ TIER 2: B    │ │ TIER 2: C       │
 │  (Service Provider)│ │ (Provider)   │ │ (Provider)      │
 │                    │ │              │ │                  │
-│ Tenant Manager     │ │              │ │                  │
-│ (soc_manager)      │ │              │ │                  │
+│ Tenant Admin       │ │              │ │                  │
+│ (tenant_admin)     │ │              │ │                  │
 │ ┌────────────────┐ │ │              │ │                  │
 │ │ Departments:   │ │ │              │ │                  │
 │ │ • Support      │ │ │              │ │                  │
 │ │ • Network      │ │ │              │ │                  │
 │ │ • Hardware     │ │ │              │ │                  │
 │ │                │ │ │              │ │                  │
-│ │ Employees:     │ │ │              │ │                  │
-│ │ • Dept Mgrs    │ │ │              │ │                  │
-│ │ • Analysts     │ │ │              │ │                  │
+│ │ Staff:         │ │ │              │ │                  │
+│ │ • Dept Managers│ │ │              │ │                  │
+│ │ • Agents       │ │ │              │ │                  │
 │ └────────────────┘ │ │              │ │                  │
 │                    │ │              │ │                  │
 │ Client Module:     │ │              │ │                  │
@@ -154,7 +154,7 @@ CREATE POLICY ticket_isolation ON tickets
     FOR ALL
     USING (
         tenant_id = current_setting('app.current_tenant')::UUID
-        OR current_setting('app.current_role') = 'mssp_admin'
+        OR current_setting('app.current_role') = 'super_admin'
     );
 ```
 
@@ -181,20 +181,20 @@ CREATE POLICY ticket_isolation ON tickets
 
 | Role | Scope | Default Redirect |
 |------|-------|-----------------|
-| `mssp_admin` | Platform-wide | `/admin` |
-| `soc_manager` (no dept) | Own tenant | `/manager` |
-| `soc_manager` (with dept) | Assigned departments | `/department/manager` |
-| `soc_analyst` | Assigned department | `/department/employee` |
+| `super_admin` | Platform-wide | `/admin` |
+| `tenant_admin` (no dept) | Own tenant | `/manager` |
+| `tenant_admin` (with dept) | Assigned departments | `/department/manager` |
+| `department_agent` | Assigned department | `/department/employee` |
 | `client_admin` | Own organization | `/client` |
-| `client_employee` | Own organization | `/client` |
+| `client_user` | Own organization | `/client` |
 
 ### Permission Matrix
 
-| Feature | Super Admin | Tenant Mgr | Dept Mgr | Employee | Client Admin | Client |
-|---------|:-----------:|:----------:|:--------:|:--------:|:------------:|:------:|
+| Feature | Super Admin | Tenant Admin | Dept Manager | Agent | Client Admin | Client User |
+|---------|:-----------:|:------------:|:------------:|:-----:|:------------:|:-----------:|
 | Tenant Management | Yes | - | - | - | - | - |
 | Department Management | Yes | Yes | Own depts | - | - | - |
-| Employee Management | Yes | Yes | Own depts | - | Own org | - |
+| Staff Management | Yes | Yes | Own depts | - | Own org | - |
 | Create Tickets | Yes | Yes | Yes | Yes | Yes | Yes |
 | View All Tickets | All tenants | Own tenant | Own depts | Assigned | Own org | Own only |
 | Assign Tickets | Yes | Yes | Own depts | - | Own org | - |
@@ -306,7 +306,7 @@ tikter/
 
 | Type | Visibility | Description |
 |------|-----------|-------------|
-| `soc_client` | External | Client-facing ticket (requires clientTenantId) |
+| `client_ticket` | External | Client-facing ticket (requires clientTenantId) |
 | `internal_dept` | Internal | Cross-department internal ticket |
 | `it_helpdesk` | Internal | IT Helpdesk support ticket |
 
@@ -321,6 +321,6 @@ Open → Pending Review → In Progress → Resolved → Closed
 
 | Level | SLA | Description |
 |-------|-----|-------------|
-| High | 4h | Critical incidents |
-| Medium | 24h | Standard incidents |
-| Low | 72h | Informational / non-urgent |
+| High | 4h | Critical incidents requiring immediate attention |
+| Medium | 24h | Standard incidents requiring timely resolution |
+| Low | 72h | Informational / non-urgent requests |
