@@ -21,7 +21,7 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                 │
 │  System Admin tenant: platform-admin                            │
-│  Default admin: zjrwan6@gmail.com                               │
+│  Default admin: Configured via SEED_ADMIN_EMAIL env var        │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
           ┌────────────────┼────────────────┐
@@ -223,11 +223,10 @@ CREATE POLICY ticket_isolation ON tickets
 
 ## Dynamic OAuth Key Loading
 
-OAuth credentials for email providers are loaded from `D:\credentials.json` via `oauthCredentialsService.js`:
+OAuth credentials for email providers are loaded via `oauthCredentialsService.js`:
 
 ```javascript
 // Path configured via GOOGLE_CREDENTIALS_PATH env var
-// Fallback: D:\credentials.json
 const credentials = oauthCredentialsService.getCredentials();
 ```
 
