@@ -171,6 +171,44 @@ tikter/
 | [User Roles](documents/USER_ROLES_PERMISSIONS.md) | RBAC matrix and permission details |
 | [Environment Variables](documents/ENV_VARIABLES.md) | Configuration reference |
 
+## Deployment
+
+### Production Server
+
+- **Server:** `129.151.129.90` (Ubuntu, Docker)
+- **HTTPS:** Self-signed SSL (10-year validity)
+- **Auto-start:** Docker + systemd enabled
+- **CI/CD:** GitHub Actions → GHCR → SSH deploy → health checks
+
+### CI/CD Pipeline
+
+```yaml
+push to main
+  ├── build-backend → GHCR
+  ├── build-frontend → GHCR
+  ├── verify-images → pull from GHCR
+  └── deploy → SSH → docker compose pull + up → health checks
+```
+
+### Quick Deploy
+
+```bash
+# Clone on production server
+git clone https://github.com/Zaidjarwan02/tikter.git
+cd tikter
+
+# Configure environment
+cp .env.example .env
+# Edit .env with production values
+
+# Start services
+docker compose up -d --build
+
+# Verify
+docker compose ps
+curl -k https://localhost/api/health
+```
+
 ## License
 
-Private repository. All rights reserved.
+Built by [ZaidJarwan](https://www.linkedin.com/in/zaidjarwan) — Private repository. All rights reserved.

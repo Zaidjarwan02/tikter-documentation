@@ -45,9 +45,22 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 |----------|---------|----------|-------------|
 | `SMTP_HOST` | `smtp.gmail.com` | No | SMTP server host |
 | `SMTP_PORT` | `587` | No | SMTP server port |
+| `SMTP_SECURE` | `false` | No | Use TLS from start |
 | `SMTP_USER` | — | Yes | SMTP username/email |
 | `SMTP_PASS` | — | Yes | SMTP password/app password |
-| `SOC_EMAIL` | Falls back to `SMTP_USER` then `support@company.com` | No | Sender email address |
+| `SMTP_FROM` | Falls back to `SMTP_USER` | No | Sender email address |
+| `SUPPORT_EMAIL` | Falls back to `SMTP_FROM` | No | Support contact email |
+
+### Per-Tenant Email Integration
+
+Tenants can configure their own email provider (Microsoft or Google) via the Settings page. Credentials are encrypted with AES-256-GCM and stored in the `tenant_email_configs` table.
+
+| Provider | Required Fields |
+|----------|----------------|
+| **Microsoft** | Client ID, Client Secret, Azure Tenant ID, Refresh Token, Sender Email |
+| **Google** | Client ID, Client Secret, Refresh Token, Sender Email |
+
+If a tenant has no email config, the system falls back to the system SMTP.
 
 ### CORS & Frontend URL
 

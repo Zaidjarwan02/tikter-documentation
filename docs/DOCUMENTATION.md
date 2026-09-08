@@ -36,6 +36,8 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
 - **Dual-layer notifications** — Socket.io (0ms) + Web Push (background/closed) via VAPID
 - **PWA desktop installation** — standalone display, offline caching, native OS notifications
 - **Dual email integration** — Microsoft Outlook (Graph API) + Google Workspace (Gmail API)
+- **Per-tenant email config** — each tenant connects their own Microsoft/Google account
+- **System SMTP fallback** — tenants without email config use system email
 - **Email invitation workflow** — invite users by email with role/department assignment
 - **Cross-department approval workflow** — assign tickets between departments with manager approval
 - **RBAC** with 5 role types (System Admin, Tenant Manager, Dept Manager, Dept Employee, Client)
@@ -44,6 +46,7 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
 - **SLA tracking** with breach monitoring
 - **PDF/CSV report export**
 - **Enable/disable client module** per tenant
+- **CI/CD pipeline** — GitHub Actions with SSH deploy and health checks
 
 ### Use Cases
 
@@ -944,10 +947,10 @@ Authorization: Bearer <jwt_token>
 
 | Method | Endpoint | Description | Roles |
 |--------|----------|-------------|-------|
-| GET | `/api/manager/email-config` | Get email config (Microsoft/Google) | Manager |
-| POST | `/api/manager/email-config` | Save email config | Manager |
-| POST | `/api/manager/email-config/test` | Test connection | Manager |
-| DELETE | `/api/manager/email-config` | Delete config | Manager |
+| GET | `/api/manager/email-config` | Get email config (Microsoft/Google) | Super Admin, Tenant Admin |
+| POST | `/api/manager/email-config` | Save email config | Super Admin, Tenant Admin |
+| POST | `/api/manager/email-config/test` | Test connection | Super Admin, Tenant Admin |
+| DELETE | `/api/manager/email-config` | Delete config | Super Admin, Tenant Admin |
 
 ### Invitation Endpoints
 
@@ -997,6 +1000,8 @@ The app uses React Context for global state:
 | `/admin/support` | AdminSupport | Super Admin |
 | `/admin/analytics` | AdminAnalytics | Super Admin |
 | `/admin/notifications` | NotificationSettings | Super Admin |
+| `/admin/settings` | Settings | Super Admin |
+| `/admin/settings/2fa` | TwoFactorSetup | Super Admin |
 
 #### Tenant Admin Routes
 
@@ -1011,7 +1016,7 @@ The app uses React Context for global state:
 | `/manager/tickets/:id` | TicketDetail | Tenant Admin / Agent |
 | `/manager/settings` | Settings | Tenant Admin / Agent |
 | `/manager/settings/2fa` | TwoFactorSetup | Tenant Admin / Agent |
-| `/manager/settings/email` | ManagerEmailConfig | Tenant Admin |
+| `/manager/settings/email` | ManagerEmailConfig | Super Admin / Tenant Admin |
 | `/manager/invitations` | ManagerInvitations | Tenant Admin |
 | `/manager/report-issue` | ReportIssue | Tenant Admin |
 | `/manager/notifications` | NotificationSettings | Tenant Admin / Agent |

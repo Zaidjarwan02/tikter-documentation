@@ -89,15 +89,30 @@ docker compose exec backend sh
 
 ### SSL with Docker
 
-Place SSL certificates in `./nginx/certs/` and update `frontend/nginx.conf`:
+Place SSL certificates in `./ssl/` and configure `frontend/nginx.conf`:
 
 ```nginx
 server {
     listen 443 ssl;
-    ssl_certificate     /etc/nginx/certs/fullchain.pem;
-    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_certificate     /etc/nginx/ssl/tikter.crt;
+    ssl_certificate_key /etc/nginx/ssl/tikter.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
     ...
 }
+```
+
+**Docker Compose mounts:**
+```yaml
+volumes:
+  - ./ssl:/etc/nginx/ssl:ro
+```
+
+**Self-signed certificate (development/testing):**
+```bash
+mkdir -p ssl
+openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+  -keyout ssl/tikter.key -out ssl/tikter.crt \
+  -subj "/CN=your-server-ip"
 ```
 
 Then restart:
@@ -283,12 +298,7 @@ cd frontend && npm install && npm start     # Terminal 2
 
 ## 4. CI/CD Pipeline (GitHub Actions)
 
-The project includes a GitHub Actions workflow (`.github/workflows/ci-cd.yml`) that:
-
-1. **Triggers** on push to `main` branch
-2. **Builds** Docker images for backend and frontend
-3. **Pushes** images to GitHub Container Registry (GHCR)
-4. **Verifies** images are accessible
+The project includes a GitHub Actions workflow (`.github/workflows/ci-cd.yml`) that implements a complete CI/CD pipeline with post-deployment health verification.
 
 ### Pipeline Structure
 
@@ -304,10 +314,34 @@ Jobs:
     - Setup Docker Buildx
     - Login to GHCR
     - Build and push frontend image
-  verify:
+  verify-images:
     needs: [build-backend, build-frontend]
-    - Pull and verify both images
+    - Pull and verify both images from GHCR
+  deploy:
+    needs: [verify-images]
+    - SSH into production server
+    - Pull latest images
+    - Restart containers
+    - Wait for initialization
+    - Health check backend API
+    - Health check frontend
 ```
+
+### Required GitHub Repository Secrets
+
+| Secret | Value | Description |
+|--------|-------|-------------|
+| `SERVER_HOST` | `129.151.129.90` | Production server IP |
+| `SERVER_USERNAME` | `zaidali` | SSH user on server |
+| `SERVER_SSH_KEY` | Private key contents | SSH key for authentication |
+
+### Health Checks
+
+After deployment, the pipeline runs health checks against:
+- `https://<SERVER_HOST>/api/health` — Backend API
+- `https://<SERVER_HOST>/` — Frontend SPA
+
+Each check retries 5 times with 5-second intervals. If both fail, the workflow is flagged as failed.
 
 ### Image Registry
 
@@ -315,6 +349,10 @@ Jobs:
 |-------|----------|
 | Backend | `ghcr.io/zaidjarwan02/tikter-backend:latest` |
 | Frontend | `ghcr.io/zaidjarwan02/tikter-frontend:latest` |
+
+### Auto-Deploy
+
+The pipeline auto-deploys on every push to `main`. Pull requests only build and verify images (no deploy).
 
 ---
 

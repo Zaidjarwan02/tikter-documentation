@@ -111,7 +111,7 @@ Basic ticket submission and tracking. Submits requests and monitors their progre
 | **Delete User** | Any user | Own tenant | No | No | No |
 | **View Reports** | All | Tenant/Dept | Own stats | Org stats | No |
 | **System Settings** | Yes | No | No | No | No |
-| **Email Config** | Yes | No | No | No | No |
+| **Email Config** | Yes | Yes (own tenant) | No | No | No |
 | **Audit Logs** | Yes | No | No | No | No |
 | **Manage Tenants** | Yes | No | No | No | No |
 | **Client Module** | Yes | If enabled | No | Yes | Yes |
@@ -159,11 +159,15 @@ function hasDeptAccess(user, deptId) {
 
 ## Invitation Workflow
 
-1. Admin/Manager creates invitation via `POST /api/invitations`
-2. Email sent to invitee with unique token
+1. Admin/Manager creates invitation via `POST /api/manager/invite`
+2. Email sent to invitee via tenant's configured email provider (or system SMTP fallback)
 3. Invitee clicks link to `/auth/accept-invite`
 4. Account created with assigned role and department(s)
 5. Invitation marked as accepted
+
+**Who can invite:**
+- `super_admin` — can invite users to any tenant
+- `tenant_admin` — can invite users to own tenant
 
 ---
 

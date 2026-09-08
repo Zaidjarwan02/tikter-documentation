@@ -607,7 +607,9 @@ List platform support tickets submitted by the current tenant.
 
 ---
 
-### Manager — Email Configuration
+### Email Configuration
+
+> **Access:** `super_admin` and `tenant_admin`
 
 #### GET `/api/manager/email-config`
 
