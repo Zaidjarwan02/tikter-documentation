@@ -1060,7 +1060,19 @@ The app uses React Context for global state:
 | `/auth/setup-2fa` | TwoFactorSetup | Public |
 | `/auth/accept-invite` | AcceptInvitation | Public |
 
-### Design System
+### Layout Components
+
+All four layout components (`AdminLayout`, `SOCLayout`, `ManagerLayout`, `ClientLayout`) share a consistent **profile dropdown** in the header:
+
+| Menu Item | Action |
+|-----------|--------|
+| Change Password | Navigates to `/settings` or role-specific settings page |
+| Enable/Disable MFA | Navigates to `/settings/2fa` or role-specific 2FA page |
+| Light Mode / Dark Mode | Toggles theme (persisted in localStorage) |
+| English / العربية | Toggles language (persisted in localStorage) |
+| Logout | Clears session, redirects to `/login` |
+
+Standalone theme and language toggles have been removed from the main dashboard — they are now only accessible via the profile dropdown.
 
 The UI uses a custom glassmorphism design with CSS variables:
 
