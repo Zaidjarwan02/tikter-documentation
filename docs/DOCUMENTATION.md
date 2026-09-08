@@ -1066,13 +1066,13 @@ All four layout components (`AdminLayout`, `SOCLayout`, `ManagerLayout`, `Client
 
 | Menu Item | Action |
 |-----------|--------|
-| Change Password | Navigates to `/settings` or role-specific settings page |
-| Enable/Disable MFA | Navigates to `/settings/2fa` or role-specific 2FA page |
+| Change Password | Navigates to settings page |
+| Enable/Disable MFA | Navigates to 2FA setup page |
 | Light Mode / Dark Mode | Toggles theme (persisted in localStorage) |
 | English / العربية | Toggles language (persisted in localStorage) |
 | Logout | Clears session, redirects to `/login` |
 
-Standalone theme and language toggles have been removed from the main dashboard — they are now only accessible via the profile dropdown.
+Standalone theme and language toggles have been removed from the main dashboard — they are now only accessible via the profile dropdown. The logout button is only available inside the profile dropdown (no standalone logout button in sidebar or header).
 
 The UI uses a custom glassmorphism design with CSS variables:
 
