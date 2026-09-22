@@ -238,7 +238,7 @@ tikter/
 │   ├── src/
 │   │   ├── config/           # DB, JWT, SMTP, OAuth config
 │   │   ├── controllers/      # Route handlers
-│   │   │   ├── authController.js          # Login, register, password reset
+│   │   │   ├── authController.js          # Login, register, forgot/reset password, 2FA
 │   │   │   ├── ticketController.js        # Ticket CRUD + messaging
 │   │   │   ├── departmentController.js    # Department management
 │   │   │   ├── adminTenantController.js   # Super admin tenant ops
@@ -300,6 +300,7 @@ tikter/
 | `notification_log` | Delivery audit trail |
 | `tenant_email_configs` | Per-tenant encrypted OAuth credentials |
 | `invitations` | Pending user invitations with hashed tokens |
+| `password_reset_tokens` | Hashed single-use password reset tokens (30-min expiry) |
 
 ### Ticket Types
 

@@ -186,3 +186,21 @@ POST /api/admin/force-password-change
 - User's `must_change_password` flag set to `true`
 - All existing sessions invalidated
 - User redirected to password change form on next login
+
+---
+
+## Password Reset (Forgot Password)
+
+End users who forget their password request a reset via the login page (`/forgot-password`):
+
+1. Backend verifies the tenant has an **active email integration** (`tenant_email_configs`).
+   - If **not** integrated → the UI shows "Contact your tenant administrator" (`requiresContactAdmin` flow). The account does not receive a reset email.
+   - If integrated → a single-use reset link is emailed to the user.
+2. The link opens `/auth/reset-password?token=...`, where the user sets a new password (must match confirmation and meet complexity rules).
+3. The token is single-use and expires after 30 minutes. All refresh tokens are revoked on reset.
+
+**Requirements:**
+- `super_admin` accounts always receive the reset link via system SMTP (never blocked).
+- Tenant accounts must have email integration configured by their tenant admin for self-service reset to work.
+
+**Admins:** A tenant admin can always reset a user's password directly via admin user management — the reset-link flow is only for self-service recovery.

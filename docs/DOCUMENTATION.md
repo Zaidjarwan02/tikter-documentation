@@ -39,6 +39,7 @@ tikter is an enterprise-grade B2B Multi-Tenant Service Desk & Operations Managem
 - **Per-tenant email config** — each tenant connects their own Microsoft/Google account
 - **System SMTP fallback** — tenants without email config use system email
 - **Email invitation workflow** — invite users by email with role/department assignment
+- **Password reset via email link** — single-use reset token (30-min) emailed to the user; contact-admin fallback for tenants without email integration
 - **Cross-department approval workflow** — assign tickets between departments with manager approval
 - **RBAC** with 5 role types (System Admin, Tenant Manager, Dept Manager, Dept Employee, Client)
 - **2FA support** via TOTP (Google Authenticator / Authy)
@@ -201,6 +202,8 @@ TKT/
 │   │   │   ├── Settings.js
 │   │   │   ├── TwoFactorSetup.js
 │   │   │   ├── ForcePasswordChange.js
+│   │   │   ├── ForgotPassword.js      # Request reset link + contact-admin fallback
+│   │   │   ├── ResetPassword.js       # Set new password via email link token
 │   │   │   ├── NotificationSettings.js  # Notification preferences page
 │   │   │   ├── ManagerEmailConfig.js    # Email provider config
 │   │   │   ├── ManagerInvitations.js    # Invitation management
@@ -629,6 +632,11 @@ Applied in order:
 | `migration_022_features.sql` | `enable_clients`, `ticket_assignments`, `pending_approval` |
 | `migration_023_email_features.sql` | `tenant_email_configs`, `invitations` |
 | `migration_024_pwa_notifications.sql` | `vapid_keys`, `push_subscriptions`, `notification_preferences`, `notification_log` |
+| `migration_025_ticket_audit_logs.sql` | Ticket-specific audit logs |
+| `migration_026_oauth_encryption_upgrade.sql` | AES-256-GCM OAuth credentials |
+| `migration_027_multi_department_manager.sql` | `user_departments` junction table |
+| `migration_028_password_reset_tokens.sql` | `password_reset_tokens` (hashed single-use reset tokens) |
+| `migration_029_domain_agnostic_roles.sql` | Role framework refinements |
 
 ---
 
@@ -672,6 +680,37 @@ Applied in order:
 - **Policy:** Minimum 8 characters, complexity requirements
 - **Force change:** Admin can require password change on first login
 - **2FA:** TOTP-based (RFC 6238) compatible with Google Authenticator, Authy
+
+### Password Reset (Forgot Password)
+
+Forgot-password no longer sends a temporary password. Instead, it emails a **single-use reset link**:
+
+```
+1. User enters email on /forgot-password
+         │
+2. Backend checks tenant email integration
+         │
+   ├─ No active config → { requiresContactAdmin: true }
+   │    → UI shows "Contact your tenant administrator"
+   │
+   └─ OK → generate 32-byte token, store SHA-256 hash
+           in password_reset_tokens (30-min expiry)
+         │
+3. Email sent via tenant provider (system SMTP for super_admin):
+   {FRONTEND_URL}/auth/reset-password?token=<token>
+         │
+4. User opens link → ResetPassword page enforces new password
+   (match confirm + complexity rules)
+         │
+5. resetPassword marks token used, updates password hash,
+   revokes all refresh tokens, clears must_change_password
+```
+
+Security characteristics:
+- Token stored **hashed** (SHA-256) — a leaked DB never exposes usable tokens
+- **Single-use**: previously unused tokens for the user are invalidated on new request
+- **30-minute expiry**, checked server-side
+- Enumeration-safe: same generic response whether or not the email exists
 
 ### Two-Factor Authentication (2FA)
 
@@ -797,6 +836,8 @@ Authorization: Bearer <jwt_token>
 | POST | `/api/auth/register` | Create user (Admin/Manager) | Admin/Manager |
 | GET | `/api/auth/me` | Get current user profile | Yes |
 | POST | `/api/auth/change-password` | Change own password | Yes |
+| POST | `/api/auth/forgot-password` | Email single-use password reset link | No |
+| POST | `/api/auth/reset-password` | Set new password via reset token | No |
 
 #### POST `/api/auth/login`
 
@@ -1060,6 +1101,7 @@ The app uses React Context for global state:
 | `/auth/force-change-password` | ForcePasswordChange | Public |
 | `/auth/setup-2fa` | TwoFactorSetup | Public |
 | `/auth/accept-invite` | AcceptInvitation | Public |
+| `/auth/reset-password` | ResetPassword | Public (via email link token) |
 
 ### Layout Components
 
@@ -1530,4 +1572,4 @@ Proprietary - Internal Use Only
 
 ---
 
-*Last updated: August 2026*
+*Last updated: September 2026*

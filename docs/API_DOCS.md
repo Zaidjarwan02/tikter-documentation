@@ -165,7 +165,7 @@ Refresh access token using refresh token cookie.
 
 #### POST `/api/auth/forgot-password`
 
-Request password reset email with temporary password.
+Request a password reset **link** via email. Generates a single-use reset token (30-minute expiry) stored hashed in the `password_reset_tokens` table, then emails `{FRONTEND_URL}/auth/reset-password?token=<token>` to the user through the tenant's email provider (falls back to system SMTP). If the user's tenant has no active email integration, the API responds with `requiresContactAdmin: true` so the UI can direct the user to their tenant administrator.
 
 **Request:**
 ```json
@@ -174,26 +174,53 @@ Request password reset email with temporary password.
 }
 ```
 
-**Response (200):**
+**Response (200) — reset link sent:**
 ```json
 {
-  "message": "If the email exists, a temporary password has been sent."
+  "success": true,
+  "message": "If this email is registered, a password reset link has been sent."
 }
 ```
+
+**Response (200) — tenant email not integrated (contact admin):**
+```json
+{
+  "success": false,
+  "requiresContactAdmin": true,
+  "code": "TENANT_EMAIL_NOT_INTEGRATED",
+  "message": "Your organization has not enabled email services for your account. Please contact your tenant administrator to reset your password.",
+  "messageAr": "منظمتك لم تقم بتفعيل خدمة البريد الإلكتروني لحسابك. يرجى التواصل مع مدير النظام الخاص بشركتك لإعادة تعيين كلمة المرور."
+}
+```
+
+> **Notes:** The response is identical whether or not the email exists (prevents user enumeration). Platform super admins always use system SMTP and bypass the tenant email integration check. Any previous unused reset token for the user is invalidated (single active reset link).
 
 ---
 
 #### POST `/api/auth/reset-password`
 
-Reset password using token from email.
+Reset password using the single-use token from the email link. Each token can be used exactly once and expires 30 minutes after generation.
 
 **Request:**
 ```json
 {
   "token": "reset_token_from_email",
-  "newPassword": "NewPassword123!"
+  "newPassword": "NewPassword123!",
+  "confirmPassword": "NewPassword123!"
 }
 ```
+
+**Validations:**
+- Token required, must exist in `password_reset_tokens`, unexpired, and not already used
+- `newPassword` and `confirmPassword` must match
+- Password must be at least 8 characters with uppercase, lowercase, number, and special character (`!@#$%^&*`)
+
+**Response (200):**
+```json
+{ "message": "Password has been reset successfully." }
+```
+
+On success, all of the user's refresh tokens are revoked and `must_change_password` is cleared.
 
 ---
 
